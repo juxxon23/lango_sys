@@ -1,0 +1,8 @@
+CREATE USER 'monty'@'localhost' IDENTIFIED BY 'some_pass';
+GRANT ALL PRIVILEGES ON mydb.* TO 'monty'@'localhost';
+SHOW GRANTS;
+SHOW DATABASES;
+SELECT * FROM INFORMATION_SCHEMA.SCHEMATA; # Show character_set and collation
+REVOKE ALL ON mydb.* FROM 'monty'@'localhost';
+DROP DATABASE mydb;
+SHOW TABLES;
