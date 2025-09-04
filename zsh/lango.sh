@@ -9,12 +9,11 @@ Q0="USE ${DB_NAME};"
 COL0=("name")
 COL1=("name," "description")
 COL2=("name," "description," "lang_id")
+COL3=("word_id," "tag_id")
+COL4=("phrase_id," "tag_id")
 
 function _printUsage() {
-    echo -n "${SRC_NAME} [OPTION]...
-
-Manage Lango DB.
-Version $VERSION
+    echo -n "Manage Lango DB.\nVersion $VERSION
     
     SYNOPSIS:
         ${SRC_NAME} [TABLE] [OPERATION] ...
@@ -24,7 +23,9 @@ Version $VERSION
         -l, --language    Select languages
         -w, --word        Select words
         -p, --phrase      Select phrases
-        -t, --tags        Select tags
+        -t, --tag         Select tags
+        -wt, --wordTag    Select words_tags
+        -pt, --phraseTag  Select phrases_tags
 
     OPERATIONS:
         -c, --create [name] ...
@@ -40,14 +41,26 @@ Version $VERSION
         -v, --version
                 Output version information and exit
 
-    Examples:
+    For words_tags and phrases_tags the operations are incomplete:
+    --create -wt | -pt allows you to insert duplicate relationships 
+    of words and tags
+    --showid -wt | -pt receives word_id as input and displays a list 
+    of wt_id/pt_id as appropiate
+    --update -wt | -pt takes word_id, column and new value; update
+    the first wt_id/pt_id of the list
+    --delete -wt | -pt takes wt_id/pt_id as appropiate
+
+    check_active=1 allows you to disable checkExists so that the same
+    word/phrase can have multiple tags.
+
+    EXAMPLES:
         ${SRC_NAME} --help
 "
     exit 1
 }
 
 function checkExists() {
-  Q1="SELECT * FROM ${table} WHERE name = '${1}'"
+  Q1="SELECT * FROM ${table} WHERE ${col_check} = '${1}'"
   Q2="EXISTS (${Q1})"
   Q3="SELECT IF (${Q2}, 1, 0) as RESULT;"
   echo "${Q0}${Q3}" > check_exists.sql
@@ -129,6 +142,38 @@ function writeQuery() {
         ;;
       esac
     ;;
+    words_tags)
+      case $1 in
+        c)  
+          Q1="INSERT INTO ${table} (${COL3}) VALUES ('${2}', '${3}');"
+        ;;
+        si)  
+          Q1="SELECT word_tag_id FROM ${table} WHERE word_id = '${2}';"
+        ;;
+        d)
+          Q1="DELETE FROM ${table} WHERE word_tag_id = '${2}';"
+        ;;
+        u)
+          Q1="UPDATE ${table} SET ${2} = '${3}' WHERE word_tag_id = ${result_id};"
+        ;;
+      esac
+    ;;
+    phrases_tags)
+      case $1 in
+        c)  
+          Q1="INSERT INTO ${table} (${COL4}) VALUES ('${2}', '${3}');"
+        ;;
+        si)  
+          Q1="SELECT phrase_tag_id FROM ${table} WHERE phrase_id = '${2}';"
+        ;;
+        d)
+          Q1="DELETE FROM ${table} WHERE phrase_tag_id = '${2}';"
+        ;;
+        u)
+          Q1="UPDATE ${table} SET ${2} = '${3}' WHERE phrase_tag_id = ${result_id};"
+        ;;
+      esac
+    ;;
   esac
 
   echo $Q1
@@ -136,10 +181,12 @@ function writeQuery() {
 }
 
 function insert() {
-  checkExists $1
-  if [ $result_check -eq 1 ]; then
-    echo "The element ${1} already exists"
-    exit 1
+  if [ $check_active -ne 1 ]; then
+    checkExists $1
+    if [ $result_check -eq 1 ]; then
+      echo "The element ${1} already exists"
+      exit 1
+    fi
   fi
   
   writeQuery c $1 $2 $3
@@ -154,10 +201,12 @@ function insert() {
 }
 
 function getId() {
-  checkExists $1
-  if  [ $result_check -eq 0 ]; then
-    echo "The element ${1} is not stored"
-    return 1
+  if [ $check_active -ne 1 ]; then
+    checkExists $1
+    if  [ $result_check -eq 0 ]; then
+      echo "The element ${1} is not stored"
+      return 1
+    fi
   fi
 
   writeQuery si $1
@@ -169,16 +218,31 @@ function getId() {
   fi
 
   result_id=$(sed -n "2p" ID_EL)
+  if [ $check_active -eq 1 ]; then
+    count=0
+    results=
+    while IFS= read line
+    do
+      ((count++))
+      if [ $count -eq 1 ]; then
+        continue
+      fi
+      results+="${line}, "
+    done < ID_EL
+    result_id="[${results%,*}]"
+  fi
   echo "The id for ${1} is: ${result_id}"
   rm query.sql
   rm ID_EL
 }
 
 function delete() {
-  checkExists $1
-  if  [ $result_check -eq 0 ]; then
-    echo "The element ${1} is not stored"
-    exit 1
+  if [ $check_active -ne 1 ]; then
+    checkExists $1
+    if  [ $result_check -eq 0 ]; then
+      echo "The element ${1} is not stored"
+      exit 1
+    fi
   fi
   
   writeQuery d $1
@@ -193,6 +257,7 @@ function delete() {
 }
 
 function update() {
+  check_active=0
   getId $1
   writeQuery u $2 $3
   $BIN_MARIADB -u $DB_USER -p < query.sql
@@ -243,6 +308,18 @@ function processArgs() {
       table="tags"
       processOperations $2 $3 $4 $5
       ;;
+    -wt | --wordTag)
+      table="words_tags"
+      col_check="word_id"
+      check_active=1
+      processOperations $2 $3 $4 $5
+      ;;
+    -pt | --phraseTag)
+      table="phrases_tags"
+      col_check="phrase_id"
+      check_active=1
+      processOperations $2 $3 $4 $5
+      ;;
     -v | --version)
       echo $VERSION
       ;;
@@ -256,6 +333,8 @@ function processArgs() {
 }
 
 #set -x
+col_check="name"
+check_active=0
 table=
 
 function  main() {
