@@ -38,9 +38,9 @@ function getTagId() {
 
 function insert() {
   Q1="INSERT INTO words (name, description, lang_id)\nVALUES\n"
-  while IFS=' ' read line
+  while IFS= read -r line
   do
-    split_line=($(echo $line | tr ' ' '\n')) # split lines by blank space
+    split_line=("${(@f)$(tr '-' '\n' <<< "$line")}") # split lines by '-' and '\n'
     Q1+="('${split_line[1]}','${split_line[2]}','${lang_sel}'),\n"
   done < "$file_name"
   Q1="${Q1%,*};" # delete last ',' and add ';'
