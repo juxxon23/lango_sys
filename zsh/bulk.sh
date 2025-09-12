@@ -1,10 +1,33 @@
 #! /bin/zsh
-
+VERSION="0.1.0"
+SRC_NAME=$(basename "$0")
 USR_DB="lango_db"
 USR_NAME="langoadm"
 USR_PASS=
 lang_sel=
 file_name=
+
+function _printUsage() {
+    echo -n "Bulk operations in Lango DB.\nVersion $VERSION
+    
+    SYNOPSIS:
+        ${SRC_NAME} [OPERATION] [FILE_NAME] ...
+
+    OPERATIONS:
+        -i, --insert [file_name] [language]
+                Insert words
+        -r, --relation [file_name]
+                Insert relationships between words and tags
+        -h, --help
+                Display this help and exit
+        -v, --version
+                Output version information and exit
+
+    EXAMPLES:
+        ${SRC_NAME} --help
+"
+    exit 1
+}
 
 function setPass() {
   echo "Type ${USR_NAME}'s password"
@@ -37,6 +60,7 @@ function getTagId() {
 }
 
 function insert() {
+  echo "Insert operation in process"
   Q1="INSERT INTO words (name, description, lang_id)\nVALUES\n"
   while IFS= read -r line
   do
@@ -45,11 +69,13 @@ function insert() {
   done < "$file_name"
   Q1="${Q1%,*};" # delete last ',' and add ';'
   sendToDB $Q1
+  echo "Operation completed"
 }
 
 function relation() {
+  echo "Relation operation in process"
   Q1="INSERT INTO words_tags (word_id, tag_id)\nVALUES\n"
-  while IFS=' ' read line
+  while IFS= read -r line
   do
     split_lines=($(echo $line | tr ' ' '\n'))
     getWordId "${split_lines[1]}"
@@ -62,25 +88,31 @@ function relation() {
   done < "$file_name"
   Q1="${Q1%,*};"
   sendToDB $Q1
+  echo "Operation completed"
 }
 
 function prcsArgs() {
-  setPass
-  getLangId "$1"
-  lang_sel="$result_lid"
-  file_name="$3"
-  case "$2" in
+  file_name="$2"
+  case "$1" in
     -i | --insert)
-      echo "insert operation"
+      setPass
+      getLangId "$3"
+      lang_sel="$result_lid"
       insert
     ;;
     -r | --relation)
-      echo "relation operation"
+      setPass
       relation
     ;;
+    -v | --version)
+      echo $VERSION
+      ;;
+    -h | --help)
+      _printUsage
+      ;;
     *)
-      echo "Unknown operation"
-    ;;
+      _printUsage 
+      ;;
   esac
 }
 
