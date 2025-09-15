@@ -32,6 +32,8 @@ function _printUsage() {
                 Create new element
         -si, --showid [name]
                 Displays element's id
+        -sd, --show-description [name]
+                Displays element's description
         -u, --update [name] [column] [new_value]
                 Updates a column of the element 
         -d, --delete [name]
@@ -57,23 +59,6 @@ function _printUsage() {
         ${SRC_NAME} --help
 "
     exit 1
-}
-
-function checkExists() {
-  Q1="SELECT * FROM ${table} WHERE ${col_check} = '${1}'"
-  Q2="EXISTS (${Q1})"
-  Q3="SELECT IF (${Q2}, 1, 0) as RESULT;"
-  echo "${Q0}${Q3}" > check_exists.sql
-  $BIN_MARIADB -u $DB_USER -p < check_exists.sql > RESULT_CHECK
-  if [ $? -eq 1 ]; then
-    rm check_exists.sql
-    rm RESULT_CHECK
-    exit 1
-  fi
-
-  result_check=$(sed -n "2p" RESULT_CHECK)
-  rm check_exists.sql
-  rm RESULT_CHECK
 }
 
 function writeQuery() {
@@ -102,6 +87,9 @@ function writeQuery() {
         si)  
           Q1="SELECT word_id FROM ${table} WHERE name = '${2}';"
         ;;
+        sd)  
+          Q1="SELECT description FROM ${table} WHERE name = '${2}';"
+        ;;
         d)
           Q1="DELETE FROM ${table} WHERE name = '${2}';"
         ;;
@@ -118,6 +106,9 @@ function writeQuery() {
         si)  
           Q1="SELECT phrase_id FROM ${table} WHERE name = '${2}';"
         ;;
+        sd)  
+          Q1="SELECT description FROM ${table} WHERE name = '${2}';"
+        ;;
         d)
           Q1="DELETE FROM ${table} WHERE name = '${2}';"
         ;;
@@ -133,6 +124,9 @@ function writeQuery() {
         ;;
         si)  
           Q1="SELECT tag_id FROM ${table} WHERE name = '${2}';"
+        ;;
+        sd)  
+          Q1="SELECT description FROM ${table} WHERE name = '${2}';"
         ;;
         d)
           Q1="DELETE FROM ${table} WHERE name = '${2}';"
@@ -180,24 +174,21 @@ function writeQuery() {
   echo "${Q0}${Q1}" > query.sql
 }
 
-function insert() {
-  if [ $check_active -ne 1 ]; then
-    checkExists $1
-    if [ $result_check -eq 1 ]; then
-      echo "The element ${1} already exists"
-      exit 1
-    fi
-  fi
-  
-  writeQuery c $1 $2 $3
-  $BIN_MARIADB -u $DB_USER -p < query.sql
+function checkExists() {
+  Q1="SELECT * FROM ${table} WHERE ${col_check} = '${1}'"
+  Q2="EXISTS (${Q1})"
+  Q3="SELECT IF (${Q2}, 1, 0) as RESULT;"
+  echo "${Q0}${Q3}" > check_exists.sql
+  $BIN_MARIADB -u $DB_USER -p < check_exists.sql > RESULT_CHECK
   if [ $? -eq 1 ]; then
-    rm query.sql
+    rm check_exists.sql
+    rm RESULT_CHECK
     exit 1
   fi
 
-  echo "The element ${1} was created"
-  rm query.sql
+  result_check=$(sed -n "2p" RESULT_CHECK)
+  rm check_exists.sql
+  rm RESULT_CHECK
 }
 
 function getId() {
@@ -236,6 +227,61 @@ function getId() {
   rm ID_EL
 }
 
+function getDescription() {
+  checkExists $1
+  if  [ $result_check -eq 0 ]; then
+    echo "The element ${1} is not stored"
+    return 1
+  fi
+
+  writeQuery sd $1
+  $BIN_MARIADB -u $DB_USER -p < query.sql > DES_EL
+  if [ $? -eq 1 ]; then
+    rm query.sql
+    rm DES_EL
+    exit 1
+  fi
+
+  result_id=$(sed -n "2p" DES_EL)
+  echo "${1}: ${result_id}"
+  rm query.sql
+  rm DES_EL
+}
+
+function insert() {
+  if [ $check_active -ne 1 ]; then
+    checkExists $1
+    if [ $result_check -eq 1 ]; then
+      echo "The element ${1} already exists"
+      exit 1
+    fi
+  fi
+  
+  writeQuery c $1 $2 $3
+  $BIN_MARIADB -u $DB_USER -p < query.sql
+  if [ $? -eq 1 ]; then
+    rm query.sql
+    exit 1
+  fi
+
+  echo "The element ${1} was created"
+  rm query.sql
+}
+
+function update() {
+  check_active=0
+  getId $1
+  writeQuery u $2 $3
+  $BIN_MARIADB -u $DB_USER -p < query.sql
+  if [ $? -eq 1 ]; then
+    rm query.sql
+    exit 1
+  fi
+
+  echo "The element ${1} was updated"
+  rm query.sql
+}
+
 function delete() {
   if [ $check_active -ne 1 ]; then
     checkExists $1
@@ -256,20 +302,6 @@ function delete() {
   rm query.sql
 }
 
-function update() {
-  check_active=0
-  getId $1
-  writeQuery u $2 $3
-  $BIN_MARIADB -u $DB_USER -p < query.sql
-  if [ $? -eq 1 ]; then
-    rm query.sql
-    exit 1
-  fi
-
-  echo "The element ${1} was updated"
-  rm query.sql
-}
-
 function processOperations() {
   case $1 in
     -c | --create)
@@ -283,6 +315,9 @@ function processOperations() {
       ;;
     -si | --showid)
       getId $2
+      ;;
+    -sd | --show-description)
+      getDescription $2
       ;;
     *)
       _printUsage 
