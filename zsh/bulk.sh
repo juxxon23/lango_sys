@@ -64,6 +64,9 @@ function insert() {
   Q1="INSERT INTO words (name, description, lang_id)\nVALUES\n"
   while IFS= read -r line
   do
+    # Expansion especial en zsh
+    # @ -> Expansión en array.
+    # f -> Divide la cadena en elementos usando saltos de línea (\n) como delimitadores.
     split_line=("${(@f)$(tr '-' '\n' <<< "$line")}") # split lines by '-' and '\n'
     Q1+="('${split_line[1]}','${split_line[2]}','${lang_sel}'),\n"
   done < "$file_name"
