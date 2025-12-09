@@ -5,6 +5,7 @@ USR_DB="lango_db"
 USR_NAME="langoadm"
 USR_PASS=
 lang_sel=
+lang_tran=
 file_name=
 
 function _printUsage() {
@@ -14,8 +15,8 @@ function _printUsage() {
         ${SRC_NAME} [OPERATION] [FILE_NAME] ...
 
     OPERATIONS:
-        -i, --insert [file_name] [language]
-                Insert words
+        -i, --insert [file_name] [language] [language_translation]
+                Insert words with their translations
         -r, --relation [file_name]
                 Insert relationships between words and tags
         -h, --help
@@ -59,20 +60,49 @@ function getTagId() {
   result_tid=$(echo "$result_db" | sed "1d")
 }
 
+function insertTranslation() {
+  echo "Translation operation in process"
+  Q2="INSERT INTO words_translation (word_id, word_tran_id)\nVALUES\n"
+  while IFS= read -r line
+  do
+    split_line=("${(@f)$(tr '-' '\n' <<< "$line")}") 
+    getWordId "${split_line[1]}"
+    word1="$result_wid"
+
+    split_line2=("${(@f)$(tr ',' '\n' <<< "$split_line[2]")}")
+    for line2 in "${split_line2[@]}"
+    do
+      getWordId "${line2}"
+      word2="$result_wid"
+      Q2+="('${word1}','${word2}'), \n"
+    done
+  done < "$file_name"
+  Q2="${Q2%,*};"
+  sendToDB $Q2
+  echo "Operation completed"
+}
+
 function insert() {
   echo "Insert operation in process"
-  Q1="INSERT INTO words (name, description, lang_id)\nVALUES\n"
+  Q1="INSERT INTO words (name, lang_id)\nVALUES\n"
   while IFS= read -r line
   do
     # Expansion especial en zsh
     # @ -> Expansión en array.
     # f -> Divide la cadena en elementos usando saltos de línea (\n) como delimitadores.
-    split_line=("${(@f)$(tr '-' '\n' <<< "$line")}") # split lines by '-' and '\n'
-    Q1+="('${split_line[1]}','${split_line[2]}','${lang_sel}'),\n"
+    split_line=("${(@f)$(tr '-' '\n' <<< "$line")}") # replace '-' with '\n' to split lines 
+    Q1+="('${split_line[1]}','${lang_sel}'),\n"
+    
+    split_line2=("${(@f)$(tr ',' '\n' <<< "$split_line[2]")}")
+    for line2 in "${split_line2[@]}"
+    do
+      Q1+="('${line2}','${lang_tran}'), \n"
+    done
   done < "$file_name"
   Q1="${Q1%,*};" # delete last ',' and add ';'
   sendToDB $Q1
   echo "Operation completed"
+  insertTranslation
 }
 
 function relation() {
@@ -101,6 +131,8 @@ function prcsArgs() {
       setPass
       getLangId "$3"
       lang_sel="$result_lid"
+      getLangId "$4"
+      lang_tran="$result_lid"
       insert
     ;;
     -r | --relation)
