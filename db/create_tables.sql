@@ -8,7 +8,6 @@ CREATE TABLE languages (
 CREATE TABLE words (
   word_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(40) NOT NULL,
-  description VARCHAR(255),
   lang_id INT NOT NULL,
   CONSTRAINT `fk_words_lang` 
     FOREIGN KEY (lang_id) REFERENCES languages(lang_id)
@@ -57,6 +56,20 @@ CREATE TABLE phrases_tags (
     ON UPDATE RESTRICT,
   CONSTRAINT `fk_tags_pt` 
     FOREIGN KEY (tag_id) REFERENCES tags(tag_id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT
+) ENGINE = InnoDB;
+
+CREATE TABLE words_translation (
+  word_translation_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  word_id INT NOT NULL,
+  word_tran_id INT NOT NULL,
+  CONSTRAINT `fk_words_wtr`
+    FOREIGN KEY (word_id) REFERENCES words(word_id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT,
+  CONSTRAINT `fk_words_wtr2`
+    FOREIGN KEY (word_tran_id) REFERENCES words(word_id)
     ON DELETE CASCADE
     ON UPDATE RESTRICT
 ) ENGINE = InnoDB;
