@@ -9,4 +9,5 @@ INSERT INTO tags (name, description) VALUES
 ('f', 'uso frecuente'),
 ('xn', 'contexto natural'),
 ('xt', 'contexto tecnologico'),
-('xm', 'contexto matematico');
+('xm', 'contexto matematico'),
+('si', 'sinonimo');
