@@ -74,3 +74,16 @@ CREATE TABLE words_translation (
     ON UPDATE RESTRICT
 ) ENGINE = InnoDB;
 
+CREATE TABLE synonyms (
+  synonym_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  word_id INT NOT NULL,
+  word_syn_id INT NOT NULL,
+  CONSTRAINT `fk_words_sy`
+    FOREIGN KEY (word_id) REFERENCES words(word_id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT,
+  CONSTRAINT `fk_words_sy2`
+    FOREIGN KEY (word_syn_id) REFERENCES words(word_id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT
+) ENGINE = InnoDB;
